@@ -56,14 +56,26 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-    - name: Download artifacts
+    - name: Download Windows artifact
       uses: actions/download-artifact@v4
+      with:
+        name: windows-exe
+        path: ./artifacts/windows
+    
+    - name: Download macOS artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: macos-app
+        path: ./artifacts/macos
+    
+    - name: List files
+      run: ls -R ./artifacts
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          windows-exe/stock-analyzer-win.exe
-          macos-app/stock-analyzer-mac
+          ./artifacts/windows/stock-analyzer-win.exe
+          ./artifacts/macos/stock-analyzer-mac
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
