@@ -31,7 +31,7 @@ openclaw skills install stock-analyzer
 ### 方式2：手动安装
 ```bash
 cd ~/.openclaw/workspace/skills
-git clone https://github.com/[your-username]/stock-analyzer.git
+git clone https://github.com/dhwangluo-eng/stock-analyzer.git
 ```
 
 ### 依赖
