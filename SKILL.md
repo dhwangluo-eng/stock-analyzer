@@ -82,11 +82,10 @@ print(format_report(result))
 
 本工具仅供参考，不构成投资建议。股市有风险，投资需谨慎。
 
-## 作者
+## 联系
 
-- 开发者: 贾维斯
-- 公众号: [你的公众号名称]
-- 版本: 1.0.0
+- Telegram群组: https://t.me/weiduchaogu
+- GitHub: https://github.com/dhwangluo-eng/stock-analyzer
 
 ## 更新日志
 

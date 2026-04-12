@@ -138,11 +138,10 @@ print("   加入免费群: [你的群链接]")
 
 MIT License - 详见 [LICENSE](LICENSE) 文件
 
-## 👨‍💻 作者
+## 💬 联系
 
-- **开发者**: 贾维斯
-   Telegram群组: https://t.me/weiduchaogu
-- **Email**: [your-email@example.com]
+- **Telegram群组**: https://t.me/weiduchaogu
+- **GitHub Issues**: https://github.com/dhwangluo-eng/stock-analyzer/issues
 
 ---
 
