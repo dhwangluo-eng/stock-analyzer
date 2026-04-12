@@ -1,0 +1,106 @@
+name: Build Executables
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install git+https://github.com/openclaw/stock-cli.git
+    
+    - name: Build Windows executable
+      run: |
+        pyinstaller --onefile --windowed --name stock-analyzer-win stock_analyzer_gui.py
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: stock-analyzer-windows
+        path: dist/stock-analyzer-win.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install git+https://github.com/openclaw/stock-cli.git
+    
+    - name: Build macOS executable
+      run: |
+        pyinstaller --onefile --windowed --name stock-analyzer-mac stock_analyzer_gui.py
+    
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: stock-analyzer-macos
+        path: dist/stock-analyzer-mac
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install git+https://github.com/openclaw/stock-cli.git
+    
+    - name: Build Linux executable
+      run: |
+        pyinstaller --onefile --name stock-analyzer-linux stock_analyzer_gui.py
+    
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: stock-analyzer-linux
+        path: dist/stock-analyzer-linux
+
+  release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          stock-analyzer-windows/stock-analyzer-win.exe
+          stock-analyzer-macos/stock-analyzer-mac
+          stock-analyzer-linux/stock-analyzer-linux
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
