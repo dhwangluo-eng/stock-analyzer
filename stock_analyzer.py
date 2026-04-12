@@ -123,7 +123,7 @@ def format_report(result):
 {'='*50}
 💡 获取完整7维度分析+实时预警
    Telegram群组: https://t.me/weiduchaogu
-   每日早盘9:00推送3只关注股
+   实时交流，获取最新分析
 {'='*50}
 """
     return report

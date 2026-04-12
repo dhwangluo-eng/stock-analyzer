@@ -71,7 +71,7 @@ class StockAnalyzerApp:
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
         
         # 底部信息
-        footer = tk.Label(self.root, text="Telegram: https://t.me/weiduchaogu", 
+        footer = tk.Label(self.root, text="实时交流，获取最新分析: https://t.me/weiduchaogu", 
                          font=('Arial', 10), fg='blue', cursor='hand2')
         footer.pack(pady=5)
         footer.bind('<Button-1>', lambda e: self.open_link())
