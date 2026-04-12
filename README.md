@@ -2,6 +2,16 @@
 
 基于7维度预测体系的股票技术分析工具，为 OpenClaw 开发的技能插件。
 
+## 📥 下载 PC 端（无需安装 Python）
+
+| 版本 | 系统 | 下载 | 说明 |
+|:---:|:---:|:---:|:---|
+| **v1.0.5** | Windows | [下载 EXE](https://github.com/dhwangluo-eng/stock-analyzer/actions/runs/24298989032) | 双击运行，图形界面 |
+| **v1.0.5** | macOS | [下载 APP](https://github.com/dhwangluo-eng/stock-analyzer/actions/runs/24298989032) | 命令行运行 |
+| 历史版本 | 所有 | [查看 Releases](https://github.com/dhwangluo-eng/stock-analyzer/releases) | 过往版本下载 |
+
+> 💡 **Windows 用户**：点击链接 → 页面底部 "Artifacts" → 下载 windows-exe 解压使用
+
 ## 🎯 功能特点
 
 - ✅ **7维度评分体系**：技术面、RSI、KDJ、资金流向、新闻、大盘、板块
