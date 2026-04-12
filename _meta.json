@@ -1,0 +1,19 @@
+{
+  "name": "stock-analyzer",
+  "version": "1.0.0",
+  "description": "股票分析助手 - 基于7维度预测体系的技术分析工具",
+  "author": "贾维斯",
+  "license": "MIT",
+  "keywords": ["stock", "analysis", "股票", "技术分析", "选股"],
+  "categories": ["finance", "investment"],
+  "entry": "python3 stock_analyzer.py",
+  "env": {
+    "required": [],
+    "optional": []
+  },
+  "capabilities": {
+    "web_search": false,
+    "file_write": true
+  },
+  "minimum_openclaw_version": "2026.4.0"
+}
