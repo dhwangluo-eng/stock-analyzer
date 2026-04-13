@@ -1,0 +1,12 @@
+{
+  "name": "stock-analyzer-pro",
+  "version": "4.6.0",
+  "description": "Professional stock analysis system with AI scoring, fund flow detection, and news sentiment analysis",
+  "author": "OpenClaw",
+  "license": "MIT",
+  "tags": ["stock", "finance", "analysis", "trading", "ai"],
+  "language": "python",
+  "entry": "stock_analyzer_pro.py",
+  "requirements": [],
+  "min_python_version": "3.7"
+}
