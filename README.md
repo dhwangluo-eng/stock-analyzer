@@ -104,6 +104,12 @@ When news is extremely bearish, prediction capped at "Technical Rebound" (no "Bu
 - v4.5: Added MA120/250, news sentiment analysis
 - v4.4: Base version with multi-period MA and AI scoring
 
+## 💬 Community
+
+Join our Telegram group for real-time discussion and updates:
+
+📎 **https://t.me/weiduchaogu**
+
 ## License
 
 MIT

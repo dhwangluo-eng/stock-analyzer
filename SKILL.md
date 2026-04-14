@@ -223,6 +223,12 @@ holdings = [
 - News sentiment analysis
 - 1-2 day trend prediction
 
+## 💬 Community
+
+Join our Telegram group for real-time discussion and updates:
+
+📎 **https://t.me/weiduchaogu**
+
 ## License
 
 MIT License
