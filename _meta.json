@@ -1,10 +1,10 @@
 {
   "name": "stock-analyzer-pro",
-  "version": "4.7.0",
-  "description": "Professional stock analysis system with intraday prediction engine, tomorrow forecast, and anti-sell-off protection",
+  "version": "4.8.0",
+  "description": "Professional stock analysis system with enhanced stop-loss protection, rebound space calculation, and smart alerts",
   "author": "OpenClaw",
   "license": "MIT",
-  "tags": ["stock", "finance", "analysis", "trading", "ai", "intraday", "prediction"],
+  "tags": ["stock", "finance", "analysis", "trading", "ai", "stop-loss", "rebound"],
   "language": "python",
   "entry": "stock_analyzer_pro.py",
   "requirements": [],

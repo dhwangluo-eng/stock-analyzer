@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-完美交易系统 v4.7 - AI分时预测版
+完美交易系统 v4.8 - 智能止损优化版
 =====================================
-维度：历史趋势 + 技术指标 + 资金流向 + 新闻情绪 + 1-2日走势预测 + 分时预测 + 明日预测
+优化点：
+1. 深套惩罚加强 (>10%亏损强制建议减仓)
+2. 反弹空间计算 (明确可操作策略)
+3. 自动止损提醒 (跌破止损位主动预警)
+4. 减仓时机智能提醒 (接近压力位±1%提醒)
+5. 主力信号加重惩罚 (主力出货+深套时预测封顶)
 """
 import sqlite3
 import json
@@ -104,11 +109,12 @@ class NewsAnalyzer:
         return {'score': score, 'sentiment': sentiment, 'reasons': reasons[:3]}
 
 
-class PerfectTradingSystemV4:
-    """完美交易系统 v4.4 - 预测版"""
+class PerfectTradingSystemV48:
+    """完美交易系统 v4.8 - 智能止损优化版"""
     
     def __init__(self, db_path='/Users/sunjian/.openclaw/workspace/trading_records.db'):
         self.db_path = db_path
+        self.news_analyzer = NewsAnalyzer()
         self.init_database()
         
     def init_database(self):
@@ -152,33 +158,8 @@ class PerfectTradingSystemV4:
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
-    def get_stock_news(self, code):
-        """获取股票相关新闻和公告"""
-        try:
-            # 使用新浪财经新闻接口
-            full_code = f"sh{code}" if code.startswith('6') else f"sz{code}"
-            url = f"https://vip.stock.finance.sina.com.cn/corp/view/vCB_AllBulletinDetail.php?stockid={code}"
-            
-            # 简化的新闻分析 - 基于关键词匹配
-            news_items = []
-            
-            # 正面新闻关键词检测
-            positive_news = []
-            negative_news = []
-            
-            # 这里简化处理，实际应该抓取网页内容
-            # 返回模拟数据用于演示
-            return {
-                'success': True,
-                'bulletins': [],
-                'sentiment': 'neutral',
-                'keywords': []
-            }
-        except:
-            return {'success': False, 'error': '无法获取新闻'}
-    
     def get_kline_tencent(self, code, period='day', days=250):
-        """获取多周期K线数据（支持MA120/250）"""
+        """获取多周期K线数据"""
         try:
             full_code = f"sh{code}" if code.startswith('6') else f"sz{code}"
             url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={full_code},{period},,,{days},qfq"
@@ -224,7 +205,7 @@ class PerfectTradingSystemV4:
                 if y_upper_shadow > y_body * 2 and y_lower_shadow < y_body * 0.5:
                     candle_pattern.append("流星线")
             
-            # 成交量异动持续性 (对比最近3期 vs 中期3期 vs 远期3期)
+            # 成交量异动持续性
             volume_sustain = 1.0
             if volumes and len(volumes) >= 12:
                 v_recent = sum(volumes[-3:]) / 3
@@ -233,15 +214,14 @@ class PerfectTradingSystemV4:
                 if v_mid > 0 and v_prev > 0:
                     r1 = v_recent / v_mid
                     r2 = v_mid / v_prev
-                    # 连续放大 = 加分, 前高后低 = 减分
                     if r1 > 1.2 and r2 > 1.1:
-                        volume_sustain = 1.3  # 持续放量
+                        volume_sustain = 1.3
                     elif r1 > 1.2 and r2 < 0.9:
-                        volume_sustain = 1.0  # 突然放量
+                        volume_sustain = 1.0
                     elif r1 < 0.8 and r2 < 0.9:
-                        volume_sustain = 0.6  # 持续缩量
+                        volume_sustain = 0.6
                     elif r1 < 0.8 and r2 > 1.1:
-                        volume_sustain = 0.8  # 突然缩量
+                        volume_sustain = 0.8
             
             # 计算各周期均线
             result = {
@@ -265,7 +245,6 @@ class PerfectTradingSystemV4:
                 'yesterday_open': y_open
             }
             
-            # 添加成交量分析
             if volumes and len(volumes) >= 5:
                 recent_vol = sum(volumes[-5:]) / 5
                 prev_vol = sum(volumes[-10:-5]) / 5 if len(volumes) >= 10 else recent_vol
@@ -277,7 +256,7 @@ class PerfectTradingSystemV4:
             return None
     
     def get_market_sentiment(self):
-        """获取大盘情绪指数（上证指数）"""
+        """获取大盘情绪指数"""
         try:
             market_kline = self.get_kline_tencent('000001', days=60)
             if not market_kline:
@@ -335,17 +314,73 @@ class PerfectTradingSystemV4:
         except:
             return {'score': 0, 'sentiment': '⚪ 中性', 'trend': 'flat', 'factors': [], 'change': 0}
     
-    def __init__(self):
-        self.news_analyzer = NewsAnalyzer()
+    # ============== v4.8 核心优化 ==============
+    
+    def calculate_rebound_space(self, price, resistance, support):
+        """v4.8 新增：计算反弹空间"""
+        if resistance and price > 0:
+            rebound_pct = (resistance - price) / price * 100
+            return rebound_pct
+        return 0
+    
+    def generate_rebound_advice(self, rebound_pct, is_deep_loss, has_distribution):
+        """v4.8 新增：基于反弹空间的操作建议"""
+        if rebound_pct < 1:
+            if is_deep_loss:
+                return "🔴 压力位太近，反弹空间<1%，建议开盘即减仓"
+            else:
+                return "⚠️ 反弹空间有限，不等待反弹"
+        elif rebound_pct < 2:
+            if is_deep_loss:
+                return "🟡 压力位较近，小幅反弹即减仓减亏"
+            else:
+                return "🟡 反弹空间2%以内，可持有等待"
+        elif rebound_pct > 5:
+            return "🟢 有5%+做T空间，可等压力位附近减仓"
+        else:
+            return "➡️ 正常反弹空间，按原策略执行"
+    
+    def check_stop_loss_alert(self, price, stop_loss, profit_pct, code, name):
+        """v4.8 新增：止损提醒检查"""
+        alerts = []
+        
+        # 1. 已跌破止损
+        if price <= stop_loss:
+            alerts.append(f"🚨【止损触发】{name}({code}) 当前价{price:.2f} 已跌破止损位{stop_loss:.2f}，建议立即卖出！")
+        
+        # 2. 接近止损（2%以内）
+        stop_distance_pct = (price - stop_loss) / stop_loss * 100
+        if 0 < stop_distance_pct <= 2:
+            alerts.append(f"⚠️【接近止损】{name}({code}) 距离止损位仅{stop_distance_pct:.1f}%，密切关注！")
+        
+        # 3. 深套股继续恶化
+        if profit_pct < -10:
+            alerts.append(f"🔴【深套警告】{name}({code}) 已深套{profit_pct:.1f}%，禁止补仓！")
+        
+        return alerts
+    
+    def check_resistance_alert(self, price, resistance, code, name):
+        """v4.8 新增：压力位减仓提醒"""
+        if resistance and price > 0:
+            distance_pct = abs(price - resistance) / price * 100
+            if distance_pct <= 1:
+                if price >= resistance:
+                    return f"🎯【压力位到达】{name}({code}) 已达到压力位{resistance:.2f}，建议减仓！"
+                else:
+                    return f"⏰【接近压力】{name}({code}) 距离压力位{resistance:.2f} 仅{distance_pct:.1f}%"
+        return None
+    
+    # ============== v4.8 分析主函数 ==============
     
     def analyze_stock(self, code, name, cost, qty, stop_loss, target):
-        """综合分析单只股票"""
+        """v4.8 综合分析单只股票"""
         data = self.get_stock_data(code)
         if not data['success']:
             return None
         
         price = data['price']
         profit_pct = ((price - cost) / cost) * 100
+        profit_amount = (price - cost) * qty
         kline = self.get_kline_tencent(code)
         
         # 获取并分析新闻
@@ -361,77 +396,101 @@ class PerfectTradingSystemV4:
             news_sentiment = news_result['sentiment']
             news_reasons = news_result['reasons']
         
-        # 评分系统 (满分100)
-        score = 50  # 基础分
-        score += news_score  # 加入新闻评分
+        # ========== v4.8 评分系统 ==========
+        score = 50
         factors = []
         
-        # 添加新闻因素
+        # 新闻评分
         if news_score != 0:
             factors.append(f"📰 新闻{news_sentiment} ({news_score:+d})")
             factors.extend(news_reasons[:2])
         
-        # 1. 多周期趋势分析 (30分)
+        # 多周期趋势分析 (30分)
         ma_score = 0
         ma_factors = []
+        technical_strength = 0
         
         if kline:
             price = kline['current']
-            # 短期趋势
             if price > kline['ma5']:
                 ma_score += 5
                 ma_factors.append("📈 站上MA5")
+                technical_strength += 1
             if kline['ma10'] and price > kline['ma10']:
                 ma_score += 5
                 ma_factors.append("📈 站上MA10")
+                technical_strength += 1
             if kline['ma20'] and price > kline['ma20']:
                 ma_score += 5
                 ma_factors.append("📈 站上MA20")
-            
-            # 中长期趋势
+                technical_strength += 1
             if kline['ma30'] and price > kline['ma30']:
                 ma_score += 5
                 ma_factors.append("📈 站上MA30")
+                technical_strength += 1
             if kline['ma60'] and price > kline['ma60']:
                 ma_score += 5
                 ma_factors.append("📈 站上MA60")
+                technical_strength += 1
             if kline.get('ma120') and price > kline['ma120']:
                 ma_score += 5
                 ma_factors.append("📈 站上MA120(长线)")
+                technical_strength += 1
             if kline.get('ma250') and price > kline['ma250']:
                 ma_score += 10
                 ma_factors.append("🌟 站上年线(牛)")
+                technical_strength += 1
             
-            # 均线多头排列
             if kline['ma5'] > kline.get('ma10', 0) > kline.get('ma20', 0):
                 ma_score += 10
                 ma_factors.append("🌟 均线多头排列")
             
-            # 整体趋势
             if kline['trend'] == 'up':
                 ma_score += 5
                 ma_factors.append("📈 日线上升趋势")
             
             score += ma_score
-            factors.extend(ma_factors[:3])  # 只显示前3个
+            factors.extend(ma_factors[:3])
         
-        # 2. 资金流向 (20分)
+        # 资金流向 (20分)
         turnover = data['turnover']
         change_pct = data['change_pct']
-        if turnover > 10 and change_pct > 0:
-            score += 15
-            factors.append("💰 大资金流入")
-        elif turnover > 5 and change_pct > 2:
-            score += 10
-            factors.append("🟢 资金流入")
-        elif turnover > 10 and change_pct < 0:
-            score -= 15
-            factors.append("🔴 资金出逃")
-        elif change_pct < -3:
-            score -= 10
-            factors.append("⚠️ 大跌")
+        fund_signal = "⚪ 资金观望"
+        has_distribution = False  # v4.8 标记主力出货
         
-        # 3. 成交量趋势 (15分)
+        if kline:
+            price_position = (price - min(kline['closes'][-20:])) / (max(kline['closes'][-20:]) - min(kline['closes'][-20:]) + 0.001)
+            
+            if price_position < 0.3 and change_pct > 2 and turnover > 5:
+                fund_score = 15
+                fund_signal = "🚀 主力低位建仓"
+            elif price_position < 0.3 and abs(change_pct) < 2 and turnover > 8:
+                fund_score = 10
+                fund_signal = "🟢 主力低位吸筹"
+            elif price_position > 0.7 and change_pct > 3 and turnover > 10:
+                fund_score = 12
+                fund_signal = "🟢 主力拉升"
+            elif price_position > 0.6 and change_pct < -3 and turnover > 8:
+                fund_score = -15
+                fund_signal = "🚨 主力高位出货"
+                has_distribution = True  # v4.8 标记
+            elif price_position > 0.7 and abs(change_pct) < 2 and turnover > 8:
+                fund_score = -12
+                fund_signal = "🔴 主力高位派发"
+                has_distribution = True  # v4.8 标记
+            elif change_pct < -5 and turnover > 10:
+                fund_score = -15
+                fund_signal = "🚨 恐慌资金出逃"
+            elif change_pct > 5 and turnover > 10:
+                fund_score = 15
+                fund_signal = "🚀 资金抢筹"
+            else:
+                fund_score = 0
+            
+            score += fund_score
+            factors.append(fund_signal)
+        
+        # 成交量趋势 (15分)
         if kline and 'volume_trend' in kline:
             if kline['volume_trend'] == 'up':
                 score += 10
@@ -440,57 +499,21 @@ class PerfectTradingSystemV4:
                 score -= 5
                 factors.append("📉 成交量萎缩")
         
-        # 4. 主力资金精细分析 (15分)
-        fund_score = 0
-        fund_signal = None
+        # ========== v4.8 深套惩罚加强 ==========
+        is_deep_loss = profit_pct < -10
+        is_severe_loss = profit_pct < -15
         
-        if kline:
-            price_position = (price - min(kline['closes'][-20:])) / (max(kline['closes'][-20:]) - min(kline['closes'][-20:]) + 0.001)
-            
-            # 低位放量上涨 = 主力建仓
-            if price_position < 0.3 and change_pct > 2 and turnover > 5:
-                fund_score += 15
-                fund_signal = "🚀 主力低位建仓"
-            # 低位放量滞涨 = 主力吸筹
-            elif price_position < 0.3 and abs(change_pct) < 2 and turnover > 8:
-                fund_score += 10
-                fund_signal = "🟢 主力低位吸筹"
-            # 高位放量上涨 = 主力拉升
-            elif price_position > 0.7 and change_pct > 3 and turnover > 10:
-                fund_score += 12
-                fund_signal = "🟢 主力拉升"
-            # 高位放量下跌 = 主力出货
-            elif price_position > 0.6 and change_pct < -3 and turnover > 8:
-                fund_score -= 15
-                fund_signal = "🚨 主力高位出货"
-            # 高位放量滞涨 = 主力派发
-            elif price_position > 0.7 and abs(change_pct) < 2 and turnover > 8:
-                fund_score -= 12
-                fund_signal = "🔴 主力高位派发"
-            # 大跌放量 = 恐慌出逃
-            elif change_pct < -5 and turnover > 10:
-                fund_score -= 15
-                fund_signal = "🚨 恐慌资金出逃"
-            # 大涨放量 = 资金抢筹
-            elif change_pct > 5 and turnover > 10:
-                fund_score += 15
-                fund_signal = "🚀 资金抢筹"
-            else:
-                fund_signal = "⚪ 资金观望"
-        
-        if fund_signal:
-            factors.append(fund_signal)
-        score += fund_score
-        
-        # 5. 深套惩罚
-        if profit_pct < -10:
-            score -= 15
-            factors.append(f"🚨 深套{profit_pct:.1f}%")
+        if is_severe_loss:
+            score -= 25  # v4.7是-15，v4.8加强到-25
+            factors.append(f"🚨 严重深套{profit_pct:.1f}% (额外-25分)")
+        elif is_deep_loss:
+            score -= 20  # v4.7是-15，v4.8加强到-20
+            factors.append(f"🔴 深套{profit_pct:.1f}% (额外-20分)")
         elif profit_pct < -5:
             score -= 5
             factors.append(f"⚠️ 亏损{profit_pct:.1f}%")
         
-        # 4. 距离止损位 (20分)
+        # 距离止损位
         stop_distance = (price - stop_loss) / stop_loss * 100
         if stop_distance < 2:
             score -= 20
@@ -502,7 +525,7 @@ class PerfectTradingSystemV4:
             score += 10
             factors.append("✅ 止损位安全")
         
-        # 5. 昨日收盘形态分析 (影响预测)
+        # 昨日形态
         candle_factor = ""
         if kline and kline.get('candle_pattern'):
             patterns = kline['candle_pattern']
@@ -517,30 +540,31 @@ class PerfectTradingSystemV4:
             elif '阳线' in patterns:
                 candle_factor = "🟢 昨日阳线"
         
-        # 6. 成交量持续性分析
+        # 成交量持续性
         volume_factor = ""
+        volume_strong = False
         if kline and 'volume_sustain' in kline:
             vs = kline['volume_sustain']
             if vs >= 1.3:
                 volume_factor = "🔥 成交量持续放大"
+                volume_strong = True
             elif vs <= 0.6:
                 volume_factor = "📉 成交量持续萎缩"
             elif vs <= 0.8:
                 volume_factor = "📉 成交量萎缩"
         
-        # 7. 大盘情绪指数
+        # 大盘情绪
         market = self.get_market_sentiment()
         market_factor = ""
         if market['factors']:
             market_factor = f"📊 {market['sentiment']}({market['change']:+.2f}%)"
         
-        # 8. 短期预测 (综合 score + 形态 + 量能 + 大盘)
+        # 预测计算
         pred_score = score
-        # 形态调整
         if '锤子线阳线' in candle_factor:
             pred_score += 8
         elif '十字星' in candle_factor:
-            pred_score += 0  # 中性
+            pred_score += 0
         elif '流星线' in candle_factor:
             pred_score -= 8
         elif '阴线' in candle_factor and '阳线' not in candle_factor:
@@ -548,34 +572,38 @@ class PerfectTradingSystemV4:
         elif '阳线' in candle_factor:
             pred_score += 3
         
-        # 量能调整
         if '持续放大' in volume_factor:
             pred_score += 5
         elif '持续萎缩' in volume_factor:
             pred_score -= 5
         
-        # 大盘调整
         if market['trend'] == 'up':
             pred_score += 5
         elif market['trend'] == 'down':
             pred_score -= 5
         
-        # 识别超跌反弹：严重利空但技术面强势+放量
+        # 识别超跌反弹
         is_oversold_rebound = False
-        technical_strength = sum(1 for f in factors if '📈 站上MA' in f or '🌟' in f)
-        volume_strong = kline and kline.get('volume_ratio', 1) >= 1.5
         if news_score <= -30 and technical_strength >= 2 and volume_strong and profit_pct < 0:
             is_oversold_rebound = True
             factors.append("⚠️ 利空后技术反弹，此时割肉容易卖飞")
         
-        # 强烈利空封顶：严重利空时最高只能是震荡偏多
+        # v4.8 主力出货+深套封顶
         has_severe_bad_news = news_score <= -30 or news_sentiment in ['🔴 严重利空', '🔴 强烈利空']
         
-        prediction = "观望"
-        if is_oversold_rebound:
+        # ========== v4.8 主力出货加重惩罚 ==========
+        if has_distribution and is_deep_loss:
+            # 主力出货且深套，预测封顶为震荡
+            if pred_score >= 70:
+                prediction = "🟡 震荡偏多 (主力出货，诱多风险)"
+            elif pred_score >= 50:
+                prediction = "🟠 震荡偏空 (主力出货，谨慎)"
+            else:
+                prediction = "🔴 看跌 (主力出货+深套，反弹有限)"
+        elif is_oversold_rebound:
             prediction = "🟡 技术性反弹"
         elif has_severe_bad_news and pred_score >= 70:
-            prediction = "🟡 震荡偏多"  # 封顶，不允许"看涨"
+            prediction = "🟡 震荡偏多"
         elif pred_score >= 70:
             prediction = "🟢 看涨"
         elif pred_score >= 50:
@@ -585,10 +613,45 @@ class PerfectTradingSystemV4:
         else:
             prediction = "🔴 看跌"
         
-        # 决策建议
+        # ========== v4.8 决策建议优化 ==========
+        # 先计算关键价位（resistance/support），再计算反弹空间
+        resistance, support = price * 1.03, price * 0.97
+        if kline:
+            mas = []
+            for p in [('ma5',5), ('ma10',10), ('ma20',20), ('ma30',30), ('ma60',60), ('ma120',120), ('ma250',250)]:
+                if kline.get(p[0]):
+                    mas.append((kline[p[0]], p[1]))
+            mas.sort(key=lambda x: x[0])
+            for m, label in mas:
+                if m > price:
+                    resistance = m
+                    break
+            for m, label in reversed(mas):
+                if m < price:
+                    support = m
+                    break
+        
+        # v4.8 计算反弹空间（必须在resistance/support计算之后）
+        rebound_pct = self.calculate_rebound_space(price, resistance, support)
+        rebound_advice = self.generate_rebound_advice(rebound_pct, is_deep_loss, has_distribution)
+        
+        # v4.8 生成警报
+        stop_loss_alerts = self.check_stop_loss_alert(price, stop_loss, profit_pct, code, name)
+        resistance_alert = self.check_resistance_alert(price, resistance, code, name)
+        
+        # 决策逻辑 - v4.8优化
         if price <= stop_loss:
-            action = "🔴 止损卖出"
-            action_reason = "触发设定止损位"
+            action = "🔴 立即止损"
+            action_reason = f"已触发止损位 {stop_loss:.2f}，严格执行！"
+        elif is_severe_loss and has_distribution:
+            action = "🔴 减仓为主"
+            action_reason = f"严重深套{profit_pct:.1f}%且主力出货，反弹即减仓，不等待"
+        elif is_deep_loss and has_distribution:
+            action = "🟠 择机减仓"
+            action_reason = f"深套{profit_pct:.1f}%且主力出货，{rebound_advice}"
+        elif is_deep_loss:
+            action = "🟡 观望"
+            action_reason = f"深套{profit_pct:.1f}%，禁止补仓！{rebound_advice}"
         elif score >= 70 and profit_pct > 0:
             action = "🟢 持有"
             action_reason = "强势，可持有或加仓"
@@ -596,40 +659,30 @@ class PerfectTradingSystemV4:
             action = "🟡 观望"
             action_reason = "震荡，等待方向"
         elif score >= 30 and profit_pct < -5:
-            # 预测保护：1-2日预测偏乐观时，不深套卖出
             if prediction in ["🟢 看涨", "🟡 震荡偏多", "🟡 技术性反弹"]:
-                if is_oversold_rebound:
-                    action = "🟡 观望"
-                    action_reason = "利空出尽后技术性反弹，不宜割肉"
-                else:
-                    action = "🟡 观望"
-                    action_reason = "短期有压力，但1-2日预测偏乐观，暂不减仓等待反弹"
+                action = "🟡 观望"
+                action_reason = f"短期有压力，但预测偏乐观，暂不减仓。{rebound_advice}"
             else:
                 action = "🟠 减仓"
                 action_reason = "弱势，降低仓位"
         else:
-            # 预测保护：1-2日预测偏乐观时，不因score低就割肉
             if prediction in ["🟢 看涨", "🟡 震荡偏多", "🟡 技术性反弹"]:
-                if is_oversold_rebound:
-                    action = "🟡 观望"
-                    action_reason = "利空出尽后技术性反弹，不宜割肉"
-                else:
-                    action = "🟡 观望"
-                    action_reason = "score偏低，但1-2日预测偏乐观，等待反弹"
+                action = "🟡 观望"
+                action_reason = f"score偏低，但预测偏乐观，等待反弹。{rebound_advice}"
             else:
                 action = "🔴 卖出"
                 action_reason = "趋势向下，离场观望"
         
-        # 分时预测 v4.7
+        # 分时和明日预测
         intraday = self.predict_intraday(news_score, news_sentiment, kline, price, change_pct, profit_pct, is_oversold_rebound, has_severe_bad_news, technical_strength, volume_strong)
-        next_day = self.predict_next_day(prediction, intraday, kline, price, cost)
+        next_day = self.predict_next_day(prediction, intraday, kline, price, cost, resistance, support)
         
-        # 升级操作建议：加入时间维度
-        timed_advice = self.generate_timed_advice(action, action_reason, intraday, next_day, profit_pct, stop_loss, price)
+        # 时间维度建议
+        timed_advice = self.generate_timed_advice(action, action_reason, intraday, next_day, profit_pct, stop_loss, price, rebound_advice)
         
         return {
             'name': name, 'code': code, 'price': price,
-            'profit_pct': profit_pct, 'profit_amount': (price - cost) * qty,
+            'profit_pct': profit_pct, 'profit_amount': profit_amount,
             'score': score, 'factors': factors, 'prediction': prediction,
             'action': action, 'action_reason': action_reason,
             'timed_advice': timed_advice,
@@ -642,13 +695,21 @@ class PerfectTradingSystemV4:
             'volume_factor': volume_factor,
             'market_factor': market_factor,
             'intraday': intraday,
-            'next_day': next_day
+            'next_day': next_day,
+            # v4.8 新增
+            'resistance': resistance,
+            'support': support,
+            'rebound_pct': rebound_pct,
+            'rebound_advice': rebound_advice,
+            'stop_loss_alerts': stop_loss_alerts,
+            'resistance_alert': resistance_alert,
+            'is_deep_loss': is_deep_loss,
+            'has_distribution': has_distribution,
+            'stop_distance': stop_distance
         }
     
     def predict_intraday(self, news_score, news_sentiment, kline, price, change_pct, profit_pct, is_oversold_rebound, has_severe_bad_news, technical_strength, volume_strong):
-        """分时预测引擎 v4.7"""
-        
-        # 早盘：受隔夜新闻和开盘情绪影响最大
+        """分时预测引擎"""
         if has_severe_bad_news and change_pct < -2:
             morning = "🔴 恐慌低开"
         elif has_severe_bad_news:
@@ -660,10 +721,7 @@ class PerfectTradingSystemV4:
         else:
             morning = "⚪ 平开震荡"
         
-        # 盘中走势：核心逻辑
-        pattern = "➡️ 横盘"
         if is_oversold_rebound:
-            # 利空出尽 + 技术支撑 + 放量 = 先抑后扬
             if volume_strong:
                 pattern = "📉→📈 先抑后扬（利空出尽，资金抄底）"
                 noon = "🟢 震荡反弹"
@@ -673,7 +731,6 @@ class PerfectTradingSystemV4:
                 noon = "🟡 低位震荡"
                 afternoon = "⚪ 收盘平平"
         elif has_severe_bad_news and technical_strength >= 2 and volume_strong:
-            # 严重利空但有抵抗
             pattern = "📉→📈 技术性反弹"
             noon = "🟢 资金抄底反弹"
             afternoon = "🟡 反弹力度决定收盘"
@@ -702,7 +759,6 @@ class PerfectTradingSystemV4:
             noon = "🟡 窄幅波动"
             afternoon = "⚪ 收盘附近"
         
-        # 反弹强度
         if is_oversold_rebound and volume_strong:
             strength = "🔥 强反弹（可能3-6%）"
         elif is_oversold_rebound:
@@ -722,32 +778,9 @@ class PerfectTradingSystemV4:
             'strength': strength
         }
     
-    def predict_next_day(self, prediction, intraday, kline, price, cost):
-        """明日预测引擎 v4.7"""
-        
-        # 压力位和支撑位
-        resistance = price * 1.03
-        support = price * 0.97
-        if kline:
-            mas = []
-            for p in [('ma5',5), ('ma10',10), ('ma20',20), ('ma30',30), ('ma60',60), ('ma120',120), ('ma250',250)]:
-                if kline.get(p[0]):
-                    mas.append((kline[p[0]], p[1]))
-            mas.sort(key=lambda x: x[0])
-            # 找压力位：第一个高于当前价格的均线
-            for m, label in mas:
-                if m > price:
-                    resistance = m
-                    break
-            # 找支撑位：最后一个低于当前价格的均线
-            for m, label in reversed(mas):
-                if m < price:
-                    support = m
-                    break
-        
-        # 基于今日形态推导明日
+    def predict_next_day(self, prediction, intraday, kline, price, cost, resistance, support):
+        """明日预测引擎"""
         if intraday['pattern'].startswith("📉→📈"):
-            # 今日反弹，明日获利盘抛压
             next_open = "🟡 平开或小幅高开"
             next_noon = "🟡 冲高后承压"
             next_trend = "🟡 震荡偏空"
@@ -787,34 +820,30 @@ class PerfectTradingSystemV4:
             'support': support
         }
     
-    def generate_timed_advice(self, action, base_reason, intraday, next_day, profit_pct, stop_loss, price):
-        """生成带时间维度的操作建议 v4.7"""
-        
-        # 止损无条件卖
+    def generate_timed_advice(self, action, base_reason, intraday, next_day, profit_pct, stop_loss, price, rebound_advice):
+        """生成带时间维度的操作建议"""
         if price <= stop_loss:
             return f"🔴 立即卖出（已触发止损位 {stop_loss}）"
         
         timed = base_reason
         
-        # 根据分时形态优化建议
         if "📉→📈" in intraday['pattern'] and profit_pct < 0:
-            timed = f"早盘不卖，等午后反弹高点再考虑减仓。{base_reason}"
+            timed = f"早盘不卖，等午后反弹高点再考虑减仓。{rebound_advice}"
         elif "📈→📉" in intraday['pattern'] and profit_pct > 0:
-            timed = f"冲高时减仓，不要贪。{base_reason}"
+            timed = f"冲高时减仓，不要贪。{rebound_advice}"
         elif "📈→📈" in intraday['pattern']:
-            timed = f"全天强势，持有为主。{base_reason}"
+            timed = f"全天强势，持有为主。{rebound_advice}"
         elif "📉→📉" in intraday['pattern']:
-            timed = f"弱势全天，但止损位{stop_loss}未触发则暂观望。{base_reason}"
+            timed = f"弱势全天，但止损位{stop_loss}未触发则暂观望。{rebound_advice}"
         
         return timed
     
     def generate_report(self, holdings):
-        """生成报告"""
+        """生成v4.8报告"""
         print(f"\n{'='*70}")
-        print(f"【完美交易系统 v4.7】AI分时预测报告 - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        print(f"【完美交易系统 v4.8】智能止损优化版 - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         print(f"{'='*70}")
         
-        # 大盘情绪
         market = self.get_market_sentiment()
         if market:
             print(f"\n📊 大盘情绪: {market['sentiment']} ({market['change']:+.2f}%)")
@@ -832,6 +861,20 @@ class PerfectTradingSystemV4:
         for i, r in enumerate(results, 1):
             print(f"{i}. {r['name']}({r['code']}) - {r['score']}分 - {r['prediction']}")
         
+        # v4.8 新增：紧急警报区
+        all_alerts = []
+        for r in results:
+            all_alerts.extend(r.get('stop_loss_alerts', []))
+            if r.get('resistance_alert'):
+                all_alerts.append(r['resistance_alert'])
+        
+        if all_alerts:
+            print(f"\n{'='*70}")
+            print(f"🚨【紧急警报】")
+            print(f"{'='*70}")
+            for alert in all_alerts:
+                print(f"   {alert}")
+        
         print(f"\n{'='*70}")
         print(f"【个股详细分析】")
         print(f"{'='*70}")
@@ -843,31 +886,22 @@ class PerfectTradingSystemV4:
             print(f"\n【{r['name']} ({r['code']})】")
             print(f"   价格: {r['price']}元 (今日{r['change_pct']:+.2f}%)")
             print(f"   盈亏: {r['profit_amount']:,.0f}元 ({r['profit_pct']:+.2f}%)")
+            
+            # v4.8 新增：深套和主力信号标识
+            if r.get('is_deep_loss'):
+                print(f"   ⚠️ 状态: 🔴 深套股（亏损>10%）")
+            if r.get('has_distribution'):
+                print(f"   ⚠️ 状态: 🔴 主力出货中")
+            
             print(f"\n   💹 交易数据:")
             print(f"      成交量: {r['volume']:,.0f}手 ({r['volume']/10000:.2f}万手)")
             print(f"      成交额: {r['turnover']:.2f}亿元")
             
-            # 成交量趋势分析显示
             if r.get('kline') and r['kline'].get('volume_ratio'):
                 ratio = r['kline']['volume_ratio']
                 trend = r['kline']['volume_trend']
                 if trend == 'up':
-                    print(f"      趋势: 📈 放量 {ratio:.1f}x (近5日 vs 前5日)")
-                    if ratio > 1.5:
-                        print(f"      信号: 🔥 巨量突破")
-                    elif ratio > 1.2:
-                        print(f"      信号: 🟢 温和放量")
-                elif trend == 'down':
-                    print(f"      趋势: 📉 缩量 {ratio:.1f}x")
-                    print(f"      信号: ⚪ 成交清淡")
-                else:
-                    print(f"      趋势: ➡️ 持平 {ratio:.1f}x")
-            else:
-                print(f"      趋势: ⚪ 数据不足")
-                ratio = r['kline']['volume_ratio']
-                trend = r['kline']['volume_trend']
-                if trend == 'up':
-                    print(f"      趋势: 📈 放量 {ratio:.1f}x (近5日 vs 前5日)")
+                    print(f"      趋势: 📈 放量 {ratio:.1f}x")
                     if ratio > 1.5:
                         print(f"      信号: 🔥 巨量突破")
                     elif ratio > 1.2:
@@ -878,7 +912,6 @@ class PerfectTradingSystemV4:
                 else:
                     print(f"      趋势: ➡️ 持平 {ratio:.1f}x")
             
-            # 多周期MA显示
             if 'kline' in r and r['kline']:
                 k = r['kline']
                 price = r['price']
@@ -888,17 +921,23 @@ class PerfectTradingSystemV4:
                 if k.get('ma120'): print(f"      长期: MA120={k['ma120']:.2f}{'✅' if price > k['ma120'] else '❌'}")
                 if k.get('ma250'): print(f"      年线: MA250={k['ma250']:.2f}{'✅' if price > k['ma250'] else '❌'}")
             
-            # 新闻分析显示
+            # v4.8 新增：压力位/支撑位/反弹空间
+            if r.get('resistance') and r.get('support'):
+                print(f"\n   🎯 关键价位:")
+                print(f"      压力位: {r['resistance']:.2f}元")
+                print(f"      支撑位: {r['support']:.2f}元")
+                print(f"      反弹空间: {r['rebound_pct']:.2f}%")
+                print(f"      反弹建议: {r['rebound_advice']}")
+            
             if r.get('news_list'):
                 print(f"\n   📰 新闻分析:")
                 print(f"      情绪: {r['news_sentiment']} (评分: {r['news_score']:+d})")
-                for news in r['news_list'][-2:]:  # 显示最近2条
+                for news in r['news_list'][-2:]:
                     print(f"      [{news['time']}] {news['text'][:30]}...")
             
             print(f"\n   📊 综合评分: {r['score']}/100")
             print(f"   🔮 1-2日预测: {r['prediction']}")
             
-            # v4.7 分时预测
             if r.get('intraday'):
                 intra = r['intraday']
                 print(f"\n   ⏰ 【今日分时预测】")
@@ -908,7 +947,6 @@ class PerfectTradingSystemV4:
                 print(f"      形态: {intra['pattern']}")
                 print(f"      强度: {intra['strength']}")
             
-            # v4.7 明日预测
             if r.get('next_day'):
                 nd = r['next_day']
                 print(f"\n   📅 【明日预测】")
@@ -927,10 +965,15 @@ class PerfectTradingSystemV4:
                 print(f"      {r['market_factor']}")
             for f in r['factors'][:5]:
                 print(f"      {f}")
+            
             print(f"\n   💡 操作建议: {r['action']}")
             print(f"      理由: {r['action_reason']}")
             if r.get('timed_advice') and r['timed_advice'] != r['action_reason']:
                 print(f"      ⏰ 时间策略: {r['timed_advice']}")
+            
+            # v4.8 新增：止损距离提醒
+            if r.get('stop_distance') and r['stop_distance'] > 0:
+                print(f"      🛡️ 止损距离: {r['stop_distance']:.1f}%")
         
         print(f"\n{'='*70}")
         print(f"【账户汇总】")
@@ -940,7 +983,6 @@ class PerfectTradingSystemV4:
         print(f"   总盈亏: {total_value - total_cost:,.0f}元 ({total_profit_pct:+.2f}%)")
         print(f"\n   整体评分: {sum(r['score'] for r in results) / len(results):.0f}/100")
         
-        # 今日策略
         strong = [r for r in results if r['score'] >= 70]
         weak = [r for r in results if r['score'] < 40]
         
@@ -953,9 +995,15 @@ class PerfectTradingSystemV4:
         if not strong and not weak:
             print(f"   🟡 整体震荡，观望为主")
         
+        # v4.8 新增：总结提醒
+        deep_loss_count = sum(1 for r in results if r.get('is_deep_loss'))
+        if deep_loss_count > 0:
+            print(f"\n   ⚠️ 提醒: 有{deep_loss_count}只深套股(>10%)，禁止补仓，严格按策略执行！")
+        
         print(f"\n{'='*70}")
 
-# 添加今日新闻（演示）
+
+# 新闻数据
 add_stock_news('600406', '国电南瑞中标国家电网智能电网项目10亿元')
 add_stock_news('600406', '国电南瑞拟回购5-10亿元股份')
 add_stock_news('600150', '中国船舶签订10艘VLCC建造合同金额80-90亿元')
@@ -977,5 +1025,5 @@ holdings = [
 ]
 
 if __name__ == '__main__':
-    system = PerfectTradingSystemV4()
+    system = PerfectTradingSystemV48()
     system.generate_report(holdings)

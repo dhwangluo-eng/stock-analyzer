@@ -1,115 +1,86 @@
-# Stock Analyzer Pro v4.7
+# Stock Analyzer Pro v4.8
 
-Professional stock analysis system with **intraday prediction engine**, tomorrow forecast, and anti-sell-off protection.
+Professional stock analysis system with **enhanced stop-loss protection**, **rebound space calculation**, and **smart alerts**.
 
-## What's New in v4.7
+## What's New in v4.8
 
-🚀 **Intraday Prediction Engine** - Predict morning/noon/afternoon sessions
-📅 **Tomorrow Forecast** - Next-day opening, trend, support/resistance
-🛡️ **Anti-Sell-Off Protection** - Financial bomb detection + oversold rebound identification
-⏰ **Time-Based Advice** - "Don't sell in morning, wait for afternoon rebound"
+🛡️ **Enhanced Stop-Loss Protection**
+- Deep loss penalty increased (-20 for >10%, -25 for >15%)
+- Mandatory "reduce position" advice for deep loss + distribution stocks
+- Stop-loss distance display for each holding
 
-## Features
+📊 **Rebound Space Calculation**
+- Auto-calculate rebound percentage to resistance level
+- Smart advice based on rebound space (<1%, <2%, >5%)
+- Actionable "wait" or "reduce" recommendations
 
-- ✅ **Multi-period moving averages** (MA5/10/20/30/60/120/250)
-- ✅ **Volume trend analysis** with sustainability detection
-- ✅ **8-type fund flow detection** (accumulation/distribution/pulling/selling)
-- ✅ **News sentiment analysis** with financial bomb detection
-- ✅ **AI scoring system** (0-100 points)
-- ✅ **1-2 day trend prediction**
-- ✅ **Intraday session prediction** ⭐ NEW in v4.7
-- ✅ **Tomorrow forecast** with support/resistance ⭐ NEW in v4.7
-- ✅ **Smart time-based recommendations** ⭐ NEW in v4.7
+🚨 **Smart Alerts**
+- Automatic stop-loss trigger alerts
+- Resistance proximity warnings (within 1%)
+- Deep loss warnings (>10% loss)
+- Pressure/Support level display
+
+## Previous Features (v4.7)
+
+- Intraday prediction engine (morning/noon/afternoon)
+- Tomorrow forecast with support/resistance
+- Financial bomb detection
+- Anti-sell-off protection
+- Time-based smart recommendations
 
 ## Quick Start
 
 ```python
-from stock_analyzer_pro import PerfectTradingSystemV4, add_stock_news
+from stock_analyzer_pro import PerfectTradingSystemV48, add_stock_news
 
-system = PerfectTradingSystemV4()
-
-# Add news for analysis
+system = PerfectTradingSystemV48()
 add_stock_news('600406', 'Company wins major contract')
 
-# Define holdings: (code, name, cost, qty, stop_loss, target)
 holdings = [
-    ('600406', 'Stock Name', 25.0, 1000, 24.0, 28.0),
+    ('600406', 'Stock Name', 25.0, 1000, 24.0, 28.0),  # code, name, cost, qty, stop, target
 ]
 
-# Generate report
 system.generate_report(holdings)
 ```
 
-## v4.7 Intraday Prediction Example
+## v4.8 Output Example
 
 ```
-⏰ 【今日分时预测】
-   早盘: 🟢 高开
-   盘中: 🟡 窄幅波动
-   尾盘: ⚪ 收盘附近
-   形态: ⚪ 横盘震荡
-   强度: 🔥 强反弹(3-6%)
-
-📅 【明日预测】
-   开盘: 🟢 高开
-   盘中: 🟢 继续走强
-   趋势: 🟢 看涨
-   压力: 26.18  支撑: 24.98
-   理由: 趋势延续
-
-💡 操作建议: 🟢 持有
-   ⏰ 时间策略: 全天强势，持有为主
+【国电南瑞 (600406)】
+   价格: 26.86元 (今日+0.00%)
+   盈亏: 2,604元 (+6.91%)
+   
+   🎯 关键价位:
+      压力位: 27.70元
+      支撑位: 26.75元
+      反弹空间: 3.13%
+      反弹建议: 正常反弹空间，按原策略执行
+   
+   🛡️ 止损距离: 11.4%
+   
+   💡 操作建议: 🟢 持有
+      理由: 强势，可持有或加仓
 ```
 
-## Fund Flow Signals
+## Installation
 
-| Signal | Description |
-|--------|-------------|
-| 🚀 Main Force Low Building | Accumulating at low price |
-| 🟢 Main Force Accumulation | Secretly buying at low |
-| 🟢 Main Force Pulling Up | Driving price up |
-| 🔴 Main Force Distribution | Selling at high |
-| 🚨 Main Force Selling | Dumping at high |
-| 🚀 Capital Snatching | Aggressive buying |
-| 🚨 Panic Selling | Massive sell-off |
-| ⚪ Capital Waiting | No significant movement |
-
-## Anti-Sell-Off Protection (v4.7)
-
-**Financial Bomb Detection:**
-- Revenue decline: -15 points
-- Net profit loss: -20 points
-- Profit turning to loss: -25 points
-
-**Severe Bad News Cap:**
-When news is extremely bearish, prediction capped at "Technical Rebound" (no "Bullish")
-
-**Oversold Rebound Identification:**
-- Bad news exhaustion + Technical support + Volume surge + Loss position
-- Warning: "Don't sell on panic, wait for rebound"
-
-## Pattern Recognition (v4.7)
-
-| Pattern | Description | Strategy |
-|---------|-------------|----------|
-| 📉→📈 Dip-then-rally | Bad news exhausted, bargain hunting | Don't sell morning |
-| 📈→📉 Rally-then-drop | Profit-taking, distribution | Sell on rally |
-| 📈→📈 One-way up | Strong trend | Hold position |
-| 📉→📉 One-way down | Trend deterioration | Cut loss if stop hit |
-
-## Version History
-
-- **v4.7**: Intraday prediction, tomorrow forecast, financial bomb detection, time-based advice
-- v4.6: Enhanced fund flow detection, volume trend analysis
-- v4.5: Added MA120/250, news sentiment analysis
-- v4.4: Base version with multi-period MA and AI scoring
-
-## 💬 Community
-
-Join our Telegram group for real-time discussion and updates:
-
-📎 **https://t.me/weiduchaogu**
+```bash
+git clone https://github.com/dhwangluo-eng/stock-analyzer.git
+cd stock-analyzer
+pip install -r requirements.txt
+```
 
 ## License
 
-MIT
+MIT License
+
+## Version History
+
+- **v4.8**: Enhanced stop-loss protection, rebound space calculation, smart alerts
+- v4.7: Intraday prediction, tomorrow forecast, anti-sell-off protection
+- v4.6: Multi-period MA, fund flow detection, news sentiment
+
+## Author
+
+Created for OpenClaw Stock Analysis System
+Version: 4.8
